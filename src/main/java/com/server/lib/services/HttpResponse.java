@@ -31,7 +31,7 @@ public class HttpResponse {
      * Content-Length: size of payload
      */
 
-
+  
      private HttpResponse(final Map<String, List<String>> headers, int statusCode, Optional<Object> entity){
         this.headers = headers;
         this.statusCode = statusCode;
@@ -79,7 +79,7 @@ public class HttpResponse {
             return this;
         }
 
-        public Builder serEntity(final Optional<Object> entity){
+        public Builder setEntity(final Object entity){
             if(this.entity != null){
                 this.entity = Optional.of(entity);
             }
