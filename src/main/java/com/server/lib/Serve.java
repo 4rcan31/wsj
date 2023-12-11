@@ -55,7 +55,15 @@ public class Serve {
      */
 
      private void handlerConnection(Socket clienSocketConnection){
-        //No entiendo muy bien para que es runnable
+        
+
+        /* 
+         * 
+         * Entiendo que runnable es encapsular un proceso en una variable
+         * por eso se setea un callback (lamda) para guardarse y ejecutarse
+         * en un proceso aparte, en este caso en un hilo, programacion
+         * asincrona
+         */
 
         Runnable httpRequestRunner = () -> {
             try {
