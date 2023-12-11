@@ -19,6 +19,22 @@ public class HttpDecoder {
 
 
     public static Optional<HttpRequest> decode(final InputStream inputStream){
+        /* 
+         * flatMap se ejecutara cuando readMessage devuelva un valor
+         * que no sea vacio, cuando flatMap se ejecute, ejecutara el metodo
+         * que se le pase por parametro, y a ese metodo, le pasara como argumento
+         * lo que tenga el Optional donde se ejecuto, si quitamos los niveles
+         * de abstracción del codigo escrito, quedaria de esta manera:
+         * 
+         * Optional<List<String>> decoderHttp = HttpDecoder.readMessage(inputStream);
+         * 
+         * if(!(decoderHttp.isPresent())){
+         *      return Optional.empty();
+         * }else{
+         *       return HttpDecoder.buildRequest(decoderHttp.orElse(null));
+         * }
+         */
+
         return HttpDecoder.readMessage(inputStream).flatMap(
             HttpDecoder::buildRequest
         );
@@ -26,51 +42,74 @@ public class HttpDecoder {
 
 
 
-    public static Optional<List<String>> readMessage(InputStream inputStream){
+    public static Optional<List<String>> readMessage(InputStream inputStream) {
         try {
-            if(!(inputStream.available() > 0)){ //verifica si viene data
+            if (!(inputStream.available() > 0)) {
                 return Optional.empty();
             }
-
-
-            final char[] inBuffer  = new char[inputStream.available()];
-
-            final InputStreamReader inReader = new InputStreamReader(inputStream);
-
-            //no se pa que xd
-            final int read = inReader.read(inBuffer, 0, 0); 
-
+    
             List<String> message = new ArrayList<>();
-
-            try(Scanner nc = new Scanner(new String(inBuffer))) {
-                while (nc.hasNextLine()) {
-                    String line = nc.nextLine();
+    
+            InputStreamReader inReader = new InputStreamReader(inputStream);
+    
+            // Crea un Scanner a partir del InputStreamReader para leer líneas del inputStream
+            try (Scanner scanner = new Scanner(inReader)) {
+                while (scanner.hasNextLine()) {
+                    String line = scanner.nextLine();
                     message.add(line);
                 }
-                return Optional.of(message);
-            } catch (Exception e) {
-                return Optional.empty();
             }
+    
+            return Optional.of(message);
         } catch (Exception e) {
             return Optional.empty();
         }
     }
+    
 
 
+
+    /* 
+     * 
+     * Message en este caso tiene toda la peticion Http, linea por linea
+     * en una lista
+     */
     private static Optional<HttpRequest> buildRequest(List<String> message){
         if(message.isEmpty()){
             return Optional.empty();
         }
 
         String fistLine = message.get(0); 
+        /* 
+         * 
+         * La informacion se saca de la primera linea, por que una
+         * estructura de peticion http queda de esta manera:
+         * 
+         * POST /api/autores HTTP/1.1
+         * Host: miWebApi.com
+         * Content-Type: application/json
+         * Cache-Control: no-cache
+         * 
+         * en la primera linea se encuentra el metodo
+         * la ruta y la version de protocolo
+         */
         String[] httpInfo = fistLine.split(" ");
 
-        //No entiendo por que si es diferente a tres la verdad xd
+        
+        /* 
+         * Si es diferente a 3 significa que no es un formato 
+         * de peticion http, por lo tanto, no es valida la peticion
+         */
         if(httpInfo.length != 3){
             return Optional.empty();
         }
 
         String protocolVersion = httpInfo[2];
+
+        /* 
+         * Si el protocolo es diferente a 1.1 no se puede procesar
+         * la peticion
+         */
         if(!protocolVersion.equals("HTTP/1.1")){
             return Optional.empty();
         }
@@ -85,13 +124,30 @@ public class HttpDecoder {
 
         try {
             Builder requestBuilder = new Builder();
+
+            /* 
+             * Se empieza a construir la data para el request
+             */
             requestBuilder.setHttpMethod(
-                HttpMethods.valueOf(httpInfo[0])
+                  /* 
+                    Se setea el metodo que se visito
+                    desde el enum
+                  */            
+                HttpMethods.valueOf(httpInfo[0])            
             );
+
+            /* 
+             * Se setea la url visitada
+             */
             requestBuilder.setUri(
                 new URI(httpInfo[1])
             );
 
+
+            /* 
+             * 
+             * El metodo of es para setear un valor en Optional
+             */
             return Optional.of(
                 HttpDecoder.addHttpRequest(message, requestBuilder)
             );
@@ -103,6 +159,10 @@ public class HttpDecoder {
     }
 
 
+    /* 
+     * Recibe la peticion http en Lista, y el constructor 
+     * del Request
+     */
     private static HttpRequest addHttpRequest(final List<String> message, final Builder builder){
         final Map<String, List<String>> requestHeaders = new HashMap<>();
 
@@ -110,29 +170,68 @@ public class HttpDecoder {
             for(int i = 0; i < message.size(); i++){
                 String header = message.get(i);
 
-                //no estoy muy seguto que le hace index of a ese string
+                /* 
+                 * indexOf devuelve un int, del numero de caracteres
+                 * hasta donde esta ese caracter que se le paso por parametro
+                 * ejemplo:
+                 * 
+                 * String test = "Host: test.com";
+                 * test.indexOf(":");
+                 * 
+                 * esto devuelve: 4
+                 */
                 int colonIndex = header.indexOf(":");
 
-                //no entiendo por que detiene el bucle aca
+                
                 if(!(colonIndex > 0 && header.length() > colonIndex + 1)){
-                    break;
+                    /* 
+                     * La primera linea: GET /test HTTP/1.1
+                     * no tiene el caracter ":" asi que 
+                     * siempre entrara a esta condicion
+                     * asi que el bucle continua ignorando el demas
+                     * codigo, ya que no e sun header
+                     */
+                    continue;
                 }
 
+
+                /* 
+                 * Obtiene el String antes de los dos puntos
+                 */
                 String headerName = header.substring(0, colonIndex);
+
+                /* 
+                 * Obtiene el String despues de los dos puntos
+                 */
                 String headerValue = header.substring(colonIndex + 1);
 
+
+                /* 
+                 * El metodo compute verifica si 
+                 * headerName ya existe en el 
+                 * Map requestHeaders, si existe,
+                 * solamente le agrega el headervalue
+                 * al existente, si no existe, crea
+                 * una nueva clave
+                 */
                 requestHeaders.compute(headerName, (key, value) -> {
-                    if(value != null){
+                    value = (value != null) ? value : new ArrayList<>();
+                    if (value != null) {
                         value.add(headerValue);
-                    }else{
-                        value = new ArrayList<>();
                     }
                     return value;
                 });
             }
         }
+        
 
+        /* Se setea los header en el built */
         builder.setHeaders(requestHeaders);
+
+        /* 
+         * Se retorna un HttpRequesst, para luego inyectarlo
+         * dentro de un Optional
+         */
         return builder.build();
     }
 }
