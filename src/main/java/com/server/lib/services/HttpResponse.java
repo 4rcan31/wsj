@@ -38,6 +38,8 @@ public class HttpResponse {
         this.entity = entity;
      }
 
+
+
      public Map<String, List<String>> getResponseHeaders(){
         return this.headers;
      }
@@ -50,7 +52,8 @@ public class HttpResponse {
         return this.entity;
      }
 
-     public class Builder {
+
+     public static class Builder {
         
         private final Map<String, List<String>> headers;
         private int statusCode;
