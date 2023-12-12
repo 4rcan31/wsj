@@ -33,15 +33,19 @@ public class Serve {
 
     private HttpHandler httpHandler;
 
+    private int port;
+
     //se inicia el constructor
     public Serve(int port) throws IOException {
         this.routes = new HashMap<>();
         this.thereadPool = Executors.newFixedThreadPool(100);
         this.socket = new ServerSocket(port);
+        this.port = port;
     }
 
     public void start() throws IOException{
         this.httpHandler = new HttpHandler(this.routes);
+        System.out.println("Server listening in " + this.port);
 
         while (true) {
             Socket clientConnection = this.socket.accept();
@@ -55,6 +59,7 @@ public class Serve {
      */
 
      private void handlerConnection(Socket clienSocketConnection){
+       
         
 
         /* 
@@ -64,6 +69,7 @@ public class Serve {
          * en un proceso aparte, en este caso en un hilo, programacion
          * asincrona
          */
+
 
         Runnable httpRequestRunner = () -> {
             try {
@@ -81,6 +87,18 @@ public class Serve {
 
 
      public void addRoute(final HttpMethods method, final String Route, final RequestRunner callback){
+
+        /* 
+         * 
+         * Esto recive un metodo http desde el enum, saca el nombre
+         * string y luego lo concatena a la ruta string que se le pasa
+         * 
+         * y construye su structura de datos de la siguiente manera:
+         * 
+         * [
+         *  METHOD/ROUTE -> CALLBACK
+         * ]
+         */
         this.routes.put(method.name().concat(Route), callback);
      }
 }
